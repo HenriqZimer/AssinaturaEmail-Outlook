@@ -73,4 +73,4 @@ Additional variables that do not rely on Active Directory and are currently set 
 [issues-shield]: https://img.shields.io/github/issues/CaptainQwerty/AutomatedOutlookSignature.svg?style=for-the-badge
 [issues-url]: https://github.com/CaptainQwerty/AutomatedOutlookSignature/issues
 [license-shield]: https://img.shields.io/github/license/CaptainQwerty/AutomatedOutlookSignature.svg?style=for-the-badge
-[license-url]: https://github.com/CaptainQwerty/AutomatedOutlookSignature/blob/master/LICENSE.txt
+[license-url]: https://github.com/CaptainQwerty/AutomatedOutlookSignature/blob/master/LICENSE
