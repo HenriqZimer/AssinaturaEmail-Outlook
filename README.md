@@ -28,6 +28,57 @@ I recommend using the script in Group Policy as a logon script. During the user'
 
 For detailed instructions on configuring logon scripts with Group Policy, refer to this article: [Configuring Logon PowerShell Scripts with Group Policy - 4Sysops](https://4sysops.com/archives/configuring-logon-powershell-scripts-with-group-policy/). 
 
+## Dynamic User Details
+
+The script retrieves various user details from Active Directory to dynamically generate the signature. The following properties from the `UserAccount` class can be used within the signature:
+
+- **Name**: Full name of the user.
+- **DistinguishedName**: Distinguished name in Active Directory.
+- **UserPrincipalName**: User's principal name (UPN).
+- **DisplayName**: Display name of the user.
+- **GivenName**: Given (first) name.
+- **Initials**: User's initials.
+- **Surname**: User's surname (last name).
+- **Description**: Description of the user.
+- **JobTitle**: Job title of the user.
+- **Department**: Department the user belongs to.
+- **Company**: Company name.
+- **EmailAddress**: Email address of the user.
+- **StreetAddress**: Street address.
+- **City**: City of the user.
+- **State**: State or province.
+- **PostalCode**: Postal code.
+- **Country**: Country or region.
+- **TelephoneNumber**: Primary telephone number.
+- **Mobile**: Mobile phone number.
+- **Pager**: Pager number.
+- **Fax**: Fax number.
+- **HomePhoneNumber**: Home phone number.
+- **OtherHomePhoneNumber**: Additional home phone number.
+- **HomeFax**: Home fax number.
+- **OtherFax**: Additional fax number.
+- **IPPhone**: IP phone number.
+- **OtherIPPhone**: Additional IP phone number.
+- **WebPage**: Web page URL.
+- **ExtensionAttribute1**: Custom extension attribute 1.
+- **ExtensionAttribute2**: Custom extension attribute 2.
+- **ExtensionAttribute3**: Custom extension attribute 3.
+- **ExtensionAttribute4**: Custom extension attribute 4.
+- **ExtensionAttribute5**: Custom extension attribute 5.
+- **ExtensionAttribute6**: Custom extension attribute 6.
+- **ExtensionAttribute7**: Custom extension attribute 7.
+- **ExtensionAttribute8**: Custom extension attribute 8.
+- **ExtensionAttribute9**: Custom extension attribute 9.
+- **ExtensionAttribute10**: Custom extension attribute 10.
+- **ExtensionAttribute11**: Custom extension attribute 11.
+- **ExtensionAttribute12**: Custom extension attribute 12.
+- **ExtensionAttribute13**: Custom extension attribute 13.
+- **ExtensionAttribute14**: Custom extension attribute 14.
+- **ExtensionAttribute15**: Custom extension attribute 15.
+
+These details can be customized and included in the signature template to ensure that each user's signature is personalised and up-to-date with the latest information from Active Directory.
+
+
 ## Parameters
 - **Verbose**: Enables verbose output.
 - **CompanyName**: Overwrite / specifies the company name to use in the signature.
