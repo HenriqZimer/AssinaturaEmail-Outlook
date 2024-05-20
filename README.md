@@ -76,7 +76,7 @@ The script retrieves various user details from Active Directory to dynamically g
 - **ExtensionAttribute14**: Custom extension attribute 14.
 - **ExtensionAttribute15**: Custom extension attribute 15.
 
-These details can be customized and included in the signature template to ensure that each user's signature is personalised and up-to-date with the latest information from Active Directory.
+These details can be customised and included in the signature template to ensure that each user's signature is personalised and up-to-date with the latest information from Active Directory.
 
 ## Parameters
 - **Verbose**: Enables verbose output.
