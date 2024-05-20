@@ -109,8 +109,9 @@ These details can be customized and included in the signature template to ensure
 
 ## Installation - Group Policy
 1. Download the latest version of the script from the [GitHub repository](https://github.com/CaptainQwerty/AutomatedOutlookSignature).
-2. Place the script in a location accessible to your users, such as a network share or GPO script folder.
-3. Configure Group Policy to run the script at logon. Refer to the provided [Configuring Logon PowerShell Scripts with Group Policy - 4Sysops](https://4sysops.com/archives/configuring-logon-powershell-scripts-with-group-policy/) article for guidance. You can also watch this [YouTube Video Guide](https://www.youtube.com/watch?v=rt9y02iBoPE).
+2. Edit the script and update the value of `$logo` to your publically available logo image.
+3. Place the script in a location accessible to your users, such as a network share or GPO script folder.
+4. Configure Group Policy to run the script at logon. Refer to the provided [Configuring Logon PowerShell Scripts with Group Policy - 4Sysops](https://4sysops.com/archives/configuring-logon-powershell-scripts-with-group-policy/) article for guidance. You can also watch this [YouTube Video Guide](https://www.youtube.com/watch?v=rt9y02iBoPE).
 
 ## Contributing
 Contributions are welcome! Please visit the [GitHub repository](https://github.com/CaptainQwerty/AutomatedOutlookSignature) to open an issue or submit a pull request.
