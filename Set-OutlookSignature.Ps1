@@ -45,6 +45,7 @@ Version 5.0.0
 
 # [ Configuration ]
 
+Write-Verbose "Version 5.0.0"
 $logo = "https://example.com/logo.png"
 $folderLocation = Join-Path -Path $Env:appdata -ChildPath 'Microsoft\signatures'
 $fileName = 'Signature'
@@ -97,7 +98,6 @@ class UserAccount {
     [string]$ExtensionAttribute14
     [string]$ExtensionAttribute15
 }
-
 
 # [ Functions ]
 
