@@ -78,7 +78,6 @@ The script retrieves various user details from Active Directory to dynamically g
 
 These details can be customized and included in the signature template to ensure that each user's signature is personalised and up-to-date with the latest information from Active Directory.
 
-
 ## Parameters
 - **Verbose**: Enables verbose output.
 - **CompanyName**: Overwrite / specifies the company name to use in the signature.
