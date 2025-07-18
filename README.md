@@ -171,7 +171,7 @@ class SignatureGenerator {
 ```
 %APPDATA%\Microsoft\signatures\
 ├── Nome Empresa (usuario@sua.empresa.com.br).htm    # Assinatura HTML rica
-├── Nome Empresa (usuario@sua.empresa.com.br).txt    # Assinatura texto simples
+└── Nome Empresa (usuario@sua.empresa.com.br).txt    # Assinatura texto simples
 ```
 
 ## 🐛 Solução de Problemas
