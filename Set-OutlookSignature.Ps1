@@ -1,58 +1,72 @@
+#Requires -Version 5.1
+
+<#
+.SYNOPSIS
+    Gera assinaturas de email personalizadas para o Outlook baseadas em informacoes do Active Directory.
+
+.DESCRIPTION
+    Este script cria assinaturas HTML e texto para o Outlook automaticamente, 
+    baseando-se nas informacoes do usuario no Active Directory e em grupos especificos.
+
+.PARAMETER CompanyName
+    Nome da empresa (sobrescreve o valor do AD se fornecido)
+
+.PARAMETER Website
+    Website da empresa (sobrescreve o valor do AD se fornecido)
+
+.PARAMETER Encoding
+    Codificacao para o arquivo de texto da assinatura
+
+.PARAMETER LogLevel
+    Nivel de log (Error, Warning, Information, Verbose)
+
+.EXAMPLE
+    .\AssinaturaEmail_Final.ps1 -Verbose
+    
+.EXAMPLE
+    .\AssinaturaEmail_Final.ps1 -CompanyName "Trust Group" -Website "https://trust.group"
+
+.NOTES
+    Versao: 1.0
+    Autor: Sistema TI
+    Data: 2025-01-15
+#>
+
 [CmdletBinding()]
 param (
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string]
-    $CompanyName,
+    [string]$CompanyName,
+    
     [Parameter()]
     [ValidateNotNullOrEmpty()]
-    [string]
-    $Website,
+    [string]$Website,
+    
     [Parameter()]
-    [ValidateNotNullOrEmpty()]
     [ValidateSet("ascii", "utf8", "unicode", "utf32")]
-    [string]
-    $Encoding = "unicode"
+    [string]$Encoding = "unicode",
+    
+    [Parameter()]
+    [ValidateSet("Error", "Warning", "Information", "Verbose")]
+    [string]$LogLevel = "Information"
 )
 
-<#
-.SYNOPSIS
-    Automated Outlook Signature
+#region Configuration
+$Script:Config = @{
+    SignatureFolder = Join-Path -Path $Env:appdata -ChildPath 'Microsoft\signatures'
+    FileNameTemplate = "Trust Group ({0}@trust.group)"
+    SupportedExtensions = @(".htm", ".html", ".txt", ".rtf")
+    Groups = @{
+        FotoComercial = "Assinatura Email - Foto Comercial"
+        Comex = "Assinatura Email - Comex"
+        Navigal = "Assinatura Email - Navigal"
+    }
+    ImageBaseUrl = "https://trust-signatures.s3.sa-east-1.amazonaws.com"
+    DefaultOutlookVersions = @("16.0", "15.0", "14.0") # Office 365/2019/2016, 2013, 2010
+}
+#endregion
 
-.DESCRIPTION
-    Longer more detailed description
-
-.NOTES
-    Author           : CaptainQwerty
-    Release Date     : 19/05/2024
-    Script Version   : 5.0.0
-    GitHub Repo      : https://github.com/CaptainQwerty/AutomatedOutlookSignature
-    ReadMe           : https://github.com/CaptainQwerty/AutomatedOutlookSignature/blob/main/README.md
-#>
-
-<#-----[ Latest Patch Notes ]-----#
-
-Version 5.0.0
-    * New script layout utilising functions to help with readability
-    * Now Supports Verbose
-    * Support for paramaters with the script execution
-    * Now utilises a class to help with readability
-    * Fixed Office for more versions of Office
-    * Removed the group check example as this increases the scripts run time by too much
-    * encoding can be easily switch with a parameter 
-
-#>
-
-# [ Configuration ]
-
-Write-Verbose "Version 5.0.0"
-$logo = "https://example.com/logo.png"
-$folderLocation = Join-Path -Path $Env:appdata -ChildPath 'Microsoft\signatures'
-$fileName = 'Signature'
-$file  = Join-Path -Path $folderLocation -ChildPath $fileName
-
-# [ Classes ]
-
+#region Classes
 class UserAccount {
     [string]$Name
     [string]$DistinguishedName
@@ -61,6 +75,7 @@ class UserAccount {
     [string]$GivenName
     [string]$Initials
     [string]$Surname
+    [string]$PhysicalDeliveryOfficeName
     [string]$Description
     [string]$JobTitle
     [string]$Department
@@ -85,41 +100,226 @@ class UserAccount {
     [string]$ExtensionAttribute1
     [string]$ExtensionAttribute2
     [string]$ExtensionAttribute3
-    [string]$ExtensionAttribute4
-    [string]$ExtensionAttribute5
-    [string]$ExtensionAttribute6
-    [string]$ExtensionAttribute7
-    [string]$ExtensionAttribute8
-    [string]$ExtensionAttribute9
-    [string]$ExtensionAttribute10
-    [string]$ExtensionAttribute11
-    [string]$ExtensionAttribute12
-    [string]$ExtensionAttribute13
-    [string]$ExtensionAttribute14
-    [string]$ExtensionAttribute15
+    [bool]$IsFotoComercial
+    [bool]$IsComex
+    [bool]$IsNavigal
+    
+    UserAccount() {
+        # Constructor vazio para permitir inicializacao
+    }
 }
 
-# [ Functions ]
+class SignatureGenerator {
+    [UserAccount]$User
+    [hashtable]$Config
+    
+    SignatureGenerator([UserAccount]$user, [hashtable]$config) {
+        $this.User = $user
+        $this.Config = $config
+    }
+    
+    [string] GenerateHTML() {
+        if ($this.User.IsFotoComercial) {
+            return $this.GetFotoComercialSignature()
+        }
+        elseif ($this.User.IsComex) {
+            return $this.GetComexSignature()
+        }
+        elseif ($this.User.IsNavigal) {
+            return $this.GetNavigalSignature()
+        }
+        else {
+            return $this.GetDefaultSignature()
+        }
+    }
+    
+    [string] GeneratePlainText() {
+        return @"
+$($this.User.DisplayName)
+$($this.User.JobTitle)
+___________________________________________________________
+
+$($this.User.Company)
+$($this.User.PhysicalDeliveryOfficeName)
+$(if($this.User.StreetAddress){ "$($this.User.StreetAddress), " })$(if($this.User.City){ "$($this.User.City), " })$(if($this.User.State){ "$($this.User.State), " })$($this.User.PostalCode)
+
+$(if($this.User.TelephoneNumber){"T: $($this.User.TelephoneNumber)"})
+$(if($this.User.Mobile){"M: $($this.User.Mobile)"})
+$(if($this.User.EmailAddress){"E: $($this.User.EmailAddress)"})
+$(if($this.User.WebPage){"W: $($this.User.WebPage)"})
+"@
+    }
+    
+    hidden [string] GetFotoComercialSignature() {
+        $baseUrl = $this.Config.ImageBaseUrl
+        return @"
+<table><tr style="font-size: 16px"><td><img src="$baseUrl/Trust+Group/$($this.User.GivenName)+$($this.User.Surname).png" width="130"></td><td><div style="margin: 0px 20px 0px 30px"><span>We Trust</span><br><span style="font-weight: 800">$($this.User.GivenName) $($this.User.Surname)</span><br><span>$($this.User.JobTitle)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><div style="margin: 0px 20px 0px 0px"><img src="$baseUrl/Logomarcas/Logo.png" width="130"></div></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 30px 0px 30px; font-size: 18px">Acreditamos em <br>rela&ccedil;&otilde;es virtuosas <br>e confi&aacute;veis.</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+"@
+    }
+    
+    hidden [string] GetComexSignature() {
+        $baseUrl = $this.Config.ImageBaseUrl
+        return @"
+<table><tr style="font-size: 16px"><td><img src="$baseUrl/Logomarcas/Logo.png" width="130"></td><td style="margin: 0px 30px 0px 30px"><span>We Trust</span><br><span style="font-weight: 800">$($this.User.DisplayName)</span><br><span>$($this.User.Department)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><table style="margin-left: -2px;"><tr><td><img src="$baseUrl/Logomarcas/whatsapp.png" width="20"></td><td>$($this.User.TelephoneNumber)</td></tr><tr><td><img src="$baseUrl/Logomarcas/Fone.png" width="20"></td><td>$($this.User.Fax)</td></tr></table></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 40px 0px 40px; font-size: 18px">Acreditamos em <br>rela&ccedil;&otilde;es virtuosas <br>e confi&aacute;veis.</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+"@
+    }
+    
+    hidden [string] GetNavigalSignature() {
+        $baseUrl = $this.Config.ImageBaseUrl
+        return @"
+<table><tr style="font-size: 16px"><td><img src="$baseUrl/Logomarcas/Logo.png" width="130"></td><td><div style="margin: 0px 30px 0px 30px"><span>Kind regards,</span><br><span style="font-weight: 800">$($this.User.DisplayName)</span><br><span>$($this.User.Department)</span><br><br><span></span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 40px 0px 40px; font-size: 18px">Connecting your business to the global market</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+"@
+    }
+    
+    hidden [string] GetDefaultSignature() {
+        $baseUrl = $this.Config.ImageBaseUrl
+        return @"
+<table><tr style="font-size: 16px"><td><img src="$baseUrl/Logomarcas/Logo.png" width="130"></td><td><div style="margin: 0px 30px 0px 30px"><span>We Trust</span><br><span style="font-weight: 800">$($this.User.DisplayName)</span><br><span>$($this.User.Department)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 40px 0px 40px; font-size: 18px">Acreditamos em <br>rela&ccedil;&otilde;es virtuosas <br>e confi&aacute;veis.</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+"@
+    }
+    
+    hidden [string] GetSocialMediaLinks() {
+        $baseUrl = $this.Config.ImageBaseUrl
+        return @"
+<table width="850"><tr><td><div style="margin: 0px 0px 0px 30px"><a href="https://wa.me/$($this.User.Mobile)"><img src="$baseUrl/Logomarcas/whatsapp.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://www.google.com/search?q=trust+group"><img src="$baseUrl/Logomarcas/localizacao.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://trust.group/"><img src="$baseUrl/Logomarcas/site.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://www.linkedin.com/company/trustgroup/?originalSubdomain=br"><img src="$baseUrl/Logomarcas/linkedin.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://www.instagram.com/trust_group_/"><img src="$baseUrl/Logomarcas/instagram.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="tel:$($this.User.Fax)"><img src="$baseUrl/Logomarcas/Fone.png" width="40"></a></div></td></tr></table>
+"@
+    }
+    
+    hidden [string] GetLegalDisclaimer() {
+        return @"
+<table><div style="font-size: 11px">O conte&uacute;do desta mensagem &eacute; de propriedade do Trust Group LTDA e &eacute; destinado exclusivamente para seu uso, sendo vedado o encaminhamento para fins particulares.<br> A divulga&ccedil;&atilde;o indevida do teor desta mensagem &eacute; crime nos termos da legisla&ccedil;&atilde;o vigente, pois resultar&aacute; em viola&ccedil;&atilde;o de segredo profissional, empresarial ou de prote&ccedil;&atilde;o<br> &agrave; marca da propriet&aacute;ria nos termos do inc. XXIX da CF/88 e Lei 9.279/96. Se voc&ecirc; n&atilde;o for o destinat&aacute;rio da mesma, favor inutiliz&aacute;-la. <br> <br> The content of this message is owned by Trust Group LTDA and is intended solely for your own use, being forbidden its use for private purposes. The improper disclosure of <br> this message is a crime under current Brazilian law, as it will represent a violation of professional, business secrets and/or brand protection under the terms of inc. XXIX of <br> CF/88 and Law 9.279/96. As it is so, if you are not the addressee, please make it unusable.</div></table>
+"@
+    }
+}
+#endregion
+
+#region Logging Functions
+function Write-Log {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message,
+        
+        [Parameter()]
+        [ValidateSet("Error", "Warning", "Information", "Verbose")]
+        [string]$Level = "Information",
+        
+        [Parameter()]
+        [System.Exception]$Exception
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "[$timestamp] [$Level] $Message"
+    
+    if ($Exception) {
+        $logMessage += " - Exception: $($Exception.Message)"
+    }
+    
+    switch ($Level) {
+        "Error" { 
+            Write-Error $logMessage
+            if ($Exception) { 
+                Write-Error $Exception.StackTrace 
+            }
+        }
+        "Warning" { Write-Warning $logMessage }
+        "Information" { Write-Information $logMessage -InformationAction Continue }
+        "Verbose" { Write-Verbose $logMessage }
+    }
+}
+#endregion
+
+#region Core Functions
+function Test-Prerequisites {
+    [CmdletBinding()]
+    param()
+    
+    try {
+        Write-Log "Verificando pre-requisitos..." -Level Verbose
+        
+        # Verifica se esta em dominio
+        if (-not $env:USERDOMAIN -or $env:USERDOMAIN -eq $env:COMPUTERNAME) {
+            throw "Este script deve ser executado em um ambiente de dominio."
+        }
+        
+        # Verifica se pode acessar AD
+        try {
+            $null = ([ADSISearcher]"(&(objectCategory=person)(sAMAccountName=$env:USERNAME))").FindOne()
+        }
+        catch {
+            throw "Nao foi possivel acessar o Active Directory. Verifique as permissoes."
+        }
+        
+        Write-Log "Pre-requisitos verificados com sucesso." -Level Information
+        return $true
+    }
+    catch {
+        Write-Log "Falha na verificacao de pre-requisitos" -Level Error -Exception $_.Exception
+        return $false
+    }
+}
+
+function Test-UserGroupMembership {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$GroupName
+    )
+    
+    try {
+        Write-Log "Verificando membership do grupo: $GroupName" -Level Verbose
+        
+        $searcher = [ADSISearcher]"(&(objectCategory=person)(sAMAccountName=$env:USERNAME))"
+        $user = $searcher.FindOne()
+        
+        if (-not $user) {
+            Write-Log "Usuario nao encontrado no AD" -Level Warning
+            return $false
+        }
+        
+        $groups = $user.Properties.memberof
+        $isMember = $groups | Where-Object { $_ -match [regex]::Escape($GroupName) }
+        
+        Write-Log "Resultado da verificacao do grupo '$GroupName': $([bool]$isMember)" -Level Verbose
+        return [bool]$isMember
+    }
+    catch {
+        Write-Log "Erro ao verificar membership do grupo '$GroupName'" -Level Warning -Exception $_.Exception
+        return $false
+    }
+}
 
 function Get-UserDetails {
     [CmdletBinding()]
-    param ()
-
+    param()
+    
     try {
-        $user = (([adsisearcher]"(&(objectCategory=User)(samaccountname=$env:username))").FindOne().Properties)
-        Write-Verbose "User found for $($env:username)"
-
-        $userAccount = New-Object UserAccount
+        Write-Log "Obtendo detalhes do usuario do Active Directory..." -Level Information
+        
+        $searcher = [ADSISearcher]"(&(objectCategory=User)(samaccountname=$env:username))"
+        $result = $searcher.FindOne()
+        
+        if (-not $result) {
+            throw "Usuario '$env:username' nao encontrado no Active Directory."
+        }
+        
+        $user = $result.Properties
+        Write-Log "Usuario encontrado: $($user['displayname'] -join '')" -Level Information
+        
+        $userAccount = [UserAccount]::new()
         $userAccount.Name = $user['name'] -join ''
         $userAccount.DistinguishedName = $user['distinguishedname'] -join ''
         $userAccount.UserPrincipalName = $user['userprincipalname'] -join ''
-        $userAccount.DisplayName = $user['displayname'] -join ''
-        $userAccount.GivenName = $user['givenname'] -join ''
+        $userAccount.DisplayName = Convert-ToHtmlEntities (Convert-SpecificLocations -Text ($user['displayname'] -join ''))
+        $userAccount.GivenName = Convert-ToHtmlEntities (Convert-SpecificLocations -Text ($user['givenname'] -join ''))
         $userAccount.Initials = $user['initials'] -join ''
-        $userAccount.Surname = $user['sn'] -join ''
+        $userAccount.Surname = Convert-ToHtmlEntities (Convert-SpecificLocations -Text ($user['sn'] -join ''))
+        
+        $rawOfficeName = if ($user['physicaldeliveryofficename']) { $user['physicaldeliveryofficename'] -join '' } else { "" }
+        $userAccount.PhysicalDeliveryOfficeName = Convert-ToHtmlEntities (Convert-SpecificLocations -Text $rawOfficeName)
+        
         $userAccount.Description = $user['description'] -join ''
-        $userAccount.JobTitle = $user['title'] -join ''
-        $userAccount.Department = $user['department'] -join ''
+        $userAccount.JobTitle = Convert-ToHtmlEntities ($user['title'] -join '')
+        $userAccount.Department = Convert-ToHtmlEntities (Convert-SpecificLocations -Text ($user['department'] -join ''))
         $userAccount.EmailAddress = $user['mail'] -join ''
         $userAccount.StreetAddress = $user['streetaddress'] -join ''
         $userAccount.City = $user['l'] -join ''
@@ -136,168 +336,354 @@ function Get-UserDetails {
         $userAccount.OtherFax = $user['otherfacsimiletelephonenumber'] -join ''
         $userAccount.IPPhone = $user['ipphone'] -join ''
         $userAccount.OtherIPPhone = $user['otheripphone'] -join ''
-
-        $userAccount.Company = if ($null -eq $CompanyName) { $user['company'] } else { $CompanyName }
-        $userAccount.WebPage = if ($null -eq $Website) { $user['wWWHomePage'] } else { $Website }
-        
+        $userAccount.Company = if ($CompanyName) { $CompanyName } else { $user['company'] -join '' }
+        $userAccount.WebPage = if ($Website) { $Website } else { $user['wWWHomePage'] -join '' }
         $userAccount.ExtensionAttribute1 = $user['extensionattribute1'] -join ''
         $userAccount.ExtensionAttribute2 = $user['extensionattribute2'] -join ''
         $userAccount.ExtensionAttribute3 = $user['extensionattribute3'] -join ''
-
+        
+        # Verifica grupos
+        $userAccount.IsFotoComercial = Test-UserGroupMembership -GroupName $Script:Config.Groups.FotoComercial
+        $userAccount.IsComex = Test-UserGroupMembership -GroupName $Script:Config.Groups.Comex
+        $userAccount.IsNavigal = Test-UserGroupMembership -GroupName $Script:Config.Groups.Navigal
+        
+        Write-Log "Detalhes do usuario obtidos com sucesso." -Level Information
         return $userAccount
-    } catch {
-        Write-Error "Unable to query Active Directory for user information. Details: $($_.Exception.Message)"
-        exit 1
+    }
+    catch {
+        Write-Log "Erro ao obter detalhes do usuario" -Level Error -Exception $_.Exception
+        throw
+    }
+}
+
+function Convert-SpecificLocations {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+    
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return $Text
+    }
+    
+    # Mapeamento sem acentos para evitar problemas de codificacao
+    $result = $Text
+    $result = $result -replace "Filial Itajai", "Filial Itaja&iacute;"
+    $result = $result -replace "Matriz Itajai", "Matriz Itaja&iacute;"
+    $result = $result -replace "Filial Sao Paulo", "Filial S&atilde;o Paulo"
+    $result = $result -replace "Filial Sumare", "Filial Sumar&eacute;"
+    $result = $result -replace "Comercio Exterior", "Com&eacute;rcio Exterior"
+    $result = $result -replace "Distribuicao", "Distribui&ccedil;&atilde;o"
+    $result = $result -replace "Juridico", "Jur&iacute;dico"
+    $result = $result -replace "Regulatorio", "regulat&oacute;rio"
+    $result = $result -replace "Joao", "Jo&atilde;o"
+    $result = $result -replace "Cezar", "C&eacute;zar"
+    $result = $result -replace "Goncalves", "Gon&ccedil;alves"
+    $result = $result -replace "Marcal", "Mar&ccedil;al"
+    $result = $result -replace "Carvalho", "&Ccedil;arvalho"
+    $result = $result -replace "Sao", "S&atilde;o"
+    
+    return $result
+}
+
+function Convert-ToHtmlEntities {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Text
+    )
+    
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return $Text
+    }
+    
+    # Funcao simplificada usando apenas codigos ASCII
+    $result = $Text
+    
+    # Conversao usando char codes para evitar problemas de codificacao
+    $result = $result -replace [char]193, "&Aacute;"  # A com acento agudo
+    $result = $result -replace [char]225, "&aacute;"  # a com acento agudo
+    $result = $result -replace [char]192, "&Agrave;"  # A com acento grave
+    $result = $result -replace [char]224, "&agrave;"  # a com acento grave
+    $result = $result -replace [char]194, "&Acirc;"   # A com circunflexo
+    $result = $result -replace [char]226, "&acirc;"   # a com circunflexo
+    $result = $result -replace [char]195, "&Atilde;"  # A com til
+    $result = $result -replace [char]227, "&atilde;"  # a com til
+    $result = $result -replace [char]201, "&Eacute;"  # E com acento agudo
+    $result = $result -replace [char]233, "&eacute;"  # e com acento agudo
+    $result = $result -replace [char]200, "&Egrave;"  # E com acento grave
+    $result = $result -replace [char]232, "&egrave;"  # e com acento grave
+    $result = $result -replace [char]202, "&Ecirc;"   # E com circunflexo
+    $result = $result -replace [char]234, "&ecirc;"   # e com circunflexo
+    $result = $result -replace [char]205, "&Iacute;"  # I com acento agudo
+    $result = $result -replace [char]237, "&iacute;"  # i com acento agudo
+    $result = $result -replace [char]204, "&Igrave;"  # I com acento grave
+    $result = $result -replace [char]236, "&igrave;"  # i com acento grave
+    $result = $result -replace [char]206, "&Icirc;"   # I com circunflexo
+    $result = $result -replace [char]238, "&icirc;"   # i com circunflexo
+    $result = $result -replace [char]211, "&Oacute;"  # O com acento agudo
+    $result = $result -replace [char]243, "&oacute;"  # o com acento agudo
+    $result = $result -replace [char]210, "&Ograve;"  # O com acento grave
+    $result = $result -replace [char]242, "&ograve;"  # o com acento grave
+    $result = $result -replace [char]212, "&Ocirc;"   # O com circunflexo
+    $result = $result -replace [char]244, "&ocirc;"   # o com circunflexo
+    $result = $result -replace [char]213, "&Otilde;"  # O com til
+    $result = $result -replace [char]245, "&otilde;"  # o com til
+    $result = $result -replace [char]218, "&Uacute;"  # U com acento agudo
+    $result = $result -replace [char]250, "&uacute;"  # u com acento agudo
+    $result = $result -replace [char]217, "&Ugrave;"  # U com acento grave
+    $result = $result -replace [char]249, "&ugrave;"  # u com acento grave
+    $result = $result -replace [char]219, "&Ucirc;"   # U com circunflexo
+    $result = $result -replace [char]251, "&ucirc;"   # u com circunflexo
+    $result = $result -replace [char]199, "&Ccedil;"  # C com cedilha
+    $result = $result -replace [char]231, "&ccedil;"  # c com cedilha
+    $result = $result -replace [char]209, "&Ntilde;"  # N com til
+    $result = $result -replace [char]241, "&ntilde;"  # n com til
+    
+    return $result
+}
+
+function Remove-OldSignatureFiles {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$BasePath
+    )
+    
+    try {
+        Write-Log "Removendo arquivos de assinatura antigos..." -Level Information
+        
+        $removedCount = 0
+        foreach ($extension in $Script:Config.SupportedExtensions) {
+            $targetFile = "$BasePath$extension"
+            if (Test-Path $targetFile) {
+                Remove-Item $targetFile -Force
+                Write-Log "Arquivo removido: $targetFile" -Level Verbose
+                $removedCount++
+            }
+        }
+        
+        if ($removedCount -gt 0) {
+            Write-Log "Removidos $removedCount arquivo(s) antigo(s)." -Level Information
+        } else {
+            Write-Log "Nenhum arquivo antigo encontrado para remocao." -Level Verbose
+        }
+    }
+    catch {
+        Write-Log "Erro ao remover arquivos antigos" -Level Warning -Exception $_.Exception
+    }
+}
+
+function New-SignatureDirectory {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+    
+    try {
+        if (-not (Test-Path -Path $Path)) {
+            Write-Log "Criando diretorio de assinaturas: $Path" -Level Information
+            $null = New-Item -ItemType Directory -Path $Path -Force
+            Write-Log "Diretorio criado com sucesso." -Level Information
+        } else {
+            Write-Log "Diretorio de assinaturas ja existe." -Level Verbose
+        }
+        return $true
+    }
+    catch {
+        Write-Log "Erro ao criar diretorio de assinaturas" -Level Error -Exception $_.Exception
+        return $false
+    }
+}
+
+function Save-SignatureFiles {
+    [CmdletBinding()]
+    param (
+        [Parameter(Mandatory)]
+        [string]$BasePath,
+        
+        [Parameter(Mandatory)]
+        [string]$HtmlContent,
+        
+        [Parameter(Mandatory)]
+        [string]$PlainTextContent,
+        
+        [Parameter(Mandatory)]
+        [string]$TextEncoding
+    )
+    
+    try {
+        # Salva arquivo HTML
+        Write-Log "Salvando assinatura HTML..." -Level Information
+        $utf8Encoding = [System.Text.UTF8Encoding]::new($false)
+        [System.IO.File]::WriteAllText("$BasePath.htm", $HtmlContent, $utf8Encoding)
+        Write-Log "Assinatura HTML salva: $BasePath.htm" -Level Information
+        
+        # Salva arquivo de texto
+        Write-Log "Salvando assinatura de texto..." -Level Information
+        $PlainTextContent | Out-File "$BasePath.txt" -Encoding $TextEncoding
+        Write-Log "Assinatura de texto salva: $BasePath.txt" -Level Information
+        
+        return $true
+    }
+    catch {
+        Write-Log "Erro ao salvar arquivos de assinatura" -Level Error -Exception $_.Exception
+        return $false
+    }
+}
+
+function Get-OutlookVersion {
+    [CmdletBinding()]
+    param()
+    
+    try {
+        Write-Log "Detectando versao do Outlook..." -Level Verbose
+        
+        foreach ($version in $Script:Config.DefaultOutlookVersions) {
+            $regPath = "HKCU:\Software\Microsoft\Office\$version\Outlook"
+            if (Test-Path $regPath) {
+                Write-Log "Outlook versao $version detectado." -Level Information
+                return $version
+            }
+        }
+        
+        # Fallback para versao mais recente
+        Write-Log "Versao especifica nao detectada, usando fallback: $($Script:Config.DefaultOutlookVersions[0])" -Level Warning
+        return $Script:Config.DefaultOutlookVersions[0]
+    }
+    catch {
+        Write-Log "Erro ao detectar versao do Outlook" -Level Warning -Exception $_.Exception
+        return $Script:Config.DefaultOutlookVersions[0]
     }
 }
 
 function Set-RegistryEntries {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory = $true)]
-        [string] $Version,
-        [Parameter(Mandatory = $true)]
-        [string] $SignatureName
+        [Parameter(Mandatory)]
+        [string]$Version,
+        
+        [Parameter(Mandatory)]
+        [string]$SignatureName
     )
-
-    $regPathGeneral = "HKCU:\Software\Microsoft\Office\$Version\Common\General"
-    $regPathMailSettings = "HKCU:\Software\Microsoft\Office\$Version\Common\MailSettings"
-    $regPathOutlookSetup = "HKCU:\Software\Microsoft\Office\$Version\Outlook\Setup"
-
-    Write-Verbose "Setting registry keys"
-    New-ItemProperty -Path $regPathGeneral -Name "Signatures" -Value "signatures" -PropertyType String -Force | Out-Null
-    New-ItemProperty -Path $regPathMailSettings -Name "NewSignature" -Value $SignatureName -PropertyType String -Force | Out-Null
-    New-ItemProperty -Path $regPathMailSettings -Name "ReplySignature" -Value $SignatureName -PropertyType String -Force | Out-Null
-
-    Write-Verbose "Removing First-Run registry key"
-    Remove-ItemProperty -Path $regPathOutlookSetup -Name "First-Run" -ErrorAction SilentlyContinue | Out-Null
-}
-
-function Get-OfficeVersion {
-    [CmdletBinding()]
-    param ()
-
-    Write-Verbose "Getting office version"
-    $officeVersions = @("16.0", "15.0", "14.0")
-    $basePath = "HKCU:\Software\Microsoft\Office\"
-
-    foreach ($version in $officeVersions) {
-        $path = $basePath + $version + "\Outlook"
-        if (Test-Path -Path $path) {
-            Write-Verbose "Office Version: $version"
-            return $version
-        }
-    }
-
-    Write-Error "No compatible version of Microsoft Office found."
-    exit 1
-}
-
-function Get-SignatureHTML {
-    [CmdletBinding()]
-    param (
-        [UserAccount]$user
-    )
-
-    Write-Verbose "Building HTML"
-
-    return @"
-$(if($user.DisplayName){"<span><b>$($user.DisplayName)</b></span><br />"})
-$(if($user.JobTitle){"<span>$($user.JobTitle)</span><br /><br />"})
-
-<p>$(if($logo){"<img src='$logo' />"})</p>
-
-<p>
-$(if($user.Company){ "<b>$($user.Company)</b><br />" })
-$(if($user.StreetAddress){ "$($user.StreetAddress), " })
-$(if($user.City){ "$($user.City), " })
-$(if($user.State){ "$($user.State), " })
-$(if($user.PostalCode){ $user.PostalCode })
-</p>
-
-<table>
-    $(if($($user.TelephoneNumber)){"<tr><td><b>T:</b></td><td><a href='tel:$($user.TelephoneNumber)'>$($user.TelephoneNumber)</a></td></tr>"})
-    $(if($($user.Mobile)){"<tr><td><b>M:</b></td><td><a href='tel:$($user.Mobile)'>$($user.Mobile)</a></td></tr>"})
-    $(if($user.EmailAddress){"<tr><td><b>E:</b></td><td><a href='mailto:$($user.EmailAddress)'>$($user.EmailAddress)</a></td></tr>"})
-    $(if($($user.WebPage)){"<tr><td><b>W:</b></td><td><a href='https://$($user.WebPage)'>$($user.WebPage)</a></td></tr>"})
-</table>
-<br />
-"@
-}
-
-function Get-SignaturePlainText {
-    [CmdletBinding()]
-    param (
-        [UserAccount]$user
-    )
-
-    Write-Verbose "Building Plaint Text"
-
-    return @"
-$(if($user.DisplayName){ $user.DisplayName })
-$(if($user.JobTitle){ $user.JobTitle })
-___________________________________________________________
-
-$(if($user.Company){ $($user.Company) })
-$(if($user.StreetAddress){ "$($user.StreetAddress), " })
-$(if($user.City){ "$($user.City), " })
-$(if($user.State){ "$($user.State), " })
-$(if($user.PostalCode){ $user.PostalCode })
-
-$(if($($user.TelephoneNumber)){"T: $($user.TelephoneNumber)"})
-$(if($($user.Mobile)){"M: $($user.Mobile)"})
-$(if($user.EmailAddress){"E: $($user.EmailAddress)"})
-$(if($($user.WebPage)){"W: $($user.WebPage)"})
-"@
-}
-
-# [ CSS ]
-
-$style = 
-@"
-<style>
-p, table, a, span { 
-    font-family: Arial, Helvetica, sans-serif;
-    font-size:  12pt;
-}
-</style>
-"@
-
-# [ Execution ]
-
-$officeVersion = Get-OfficeVersion
-$user = Get-UserDetails
-
-# If the folder does not exist create it
-if (-not (Test-Path -Path $folderLocation)) {
+    
     try {
-        Write-Verbose "Creating Director: $folderLocation"
-        New-Item -ItemType directory -Path $folderLocation
-    } catch {
-        Write-Error "Error: Unable to create the signatures folder. Details: $($_.Exception.Message)"
-        exit
+        Write-Log "Configurando entradas de registro para Outlook versao $Version..." -Level Information
+        
+        $regPaths = @{
+            General = "HKCU:\Software\Microsoft\Office\$Version\Common\General"
+            MailSettings = "HKCU:\Software\Microsoft\Office\$Version\Common\MailSettings"
+            OutlookSetup = "HKCU:\Software\Microsoft\Office\$Version\Outlook\Setup"
+        }
+        
+        # Garante que as chaves existam
+        foreach ($path in $regPaths.Values) {
+            if (-not (Test-Path $path)) {
+                $null = New-Item -Path $path -Force
+                Write-Log "Chave de registro criada: $path" -Level Verbose
+            }
+        }
+        
+        # Define entradas de registro
+        $null = New-ItemProperty -Path $regPaths.General -Name "Signatures" -Value "signatures" -PropertyType String -Force
+        $null = New-ItemProperty -Path $regPaths.MailSettings -Name "NewSignature" -Value $SignatureName -PropertyType String -Force
+        $null = New-ItemProperty -Path $regPaths.MailSettings -Name "ReplySignature" -Value $SignatureName -PropertyType String -Force
+        
+        Write-Log "Entradas de registro configuradas com sucesso." -Level Information
+        
+        # Remove First-Run se existir
+        try {
+            if (Test-Path $regPaths.OutlookSetup) {
+                Remove-ItemProperty -Path $regPaths.OutlookSetup -Name "First-Run" -ErrorAction SilentlyContinue
+                Write-Log "Chave 'First-Run' removida." -Level Verbose
+            }
+        }
+        catch {
+            Write-Log "Aviso: Nao foi possivel remover a chave 'First-Run'" -Level Verbose
+        }
+        
+        return $true
+    }
+    catch {
+        Write-Log "Erro ao configurar entradas de registro" -Level Error -Exception $_.Exception
+        return $false
+    }
+}
+#endregion
+
+#region Main Script
+function Invoke-SignatureGeneration {
+    [CmdletBinding()]
+    param()
+    
+    try {
+        Write-Log "=== Iniciando geracao de assinatura de email ===" -Level Information
+        
+        # Verificacoes iniciais
+        if (-not (Test-Prerequisites)) {
+            throw "Falha na verificacao de pre-requisitos."
+        }
+        
+        # Obter detalhes do usuario
+        $user = Get-UserDetails
+        if (-not $user) {
+            throw "Nao foi possivel obter detalhes do usuario."
+        }
+        
+        # Preparar diretorio
+        if (-not (New-SignatureDirectory -Path $Script:Config.SignatureFolder)) {
+            throw "Nao foi possivel criar o diretorio de assinaturas."
+        }
+        
+        # Preparar arquivos
+        $fileName = $Script:Config.FileNameTemplate -f $env:USERNAME
+        $filePath = Join-Path -Path $Script:Config.SignatureFolder -ChildPath $fileName
+        
+        Remove-OldSignatureFiles -BasePath $filePath
+        
+        # Gerar assinaturas
+        Write-Log "Gerando assinaturas..." -Level Information
+        $signatureGenerator = [SignatureGenerator]::new($user, $Script:Config)
+        $htmlSignature = $signatureGenerator.GenerateHTML()
+        $plainTextSignature = $signatureGenerator.GeneratePlainText()
+        
+        # Salvar arquivos
+        if (-not (Save-SignatureFiles -BasePath $filePath -HtmlContent $htmlSignature -PlainTextContent $plainTextSignature -TextEncoding $Encoding)) {
+            throw "Erro ao salvar arquivos de assinatura."
+        }
+        
+        # Configurar Outlook
+        $outlookVersion = Get-OutlookVersion
+        if (-not (Set-RegistryEntries -Version $outlookVersion -SignatureName $fileName)) {
+            Write-Log "Aviso: Nao foi possivel configurar o Outlook automaticamente." -Level Warning
+        }
+        
+        Write-Log "=== Assinatura gerada com sucesso ===" -Level Information
+        Write-Log "Arquivos salvos em: $filePath" -Level Information
+        
+        return $true
+    }
+    catch {
+        Write-Log "Erro critico durante a geracao da assinatura" -Level Error -Exception $_.Exception
+        return $false
     }
 }
 
-$htmlSignature = Get-SignatureHTML -user $user
-$plainTextSignature = Get-SignaturePlainText -user $user
-
-# Save the HTML to the signature file
+# Execucao principal
 try {
-    Write-Verbose "Saving HTML signature"
-    $style + $htmlSignature | Out-File -FilePath "$file.htm" -Encoding $Encoding
-} catch {
-    Write-Error "Error: Unable to save the HTML signature file. Details: $($_.Exception.Message)"
+    $result = Invoke-SignatureGeneration
+    if ($result) {
+        exit 0
+    } else {
+        exit 1
+    }
+}
+catch {
+    Write-Log "Erro nao tratado" -Level Error -Exception $_.Exception
     exit 1
 }
-
-# Output the text to the signatures folder
-try {
-    Write-Verbose "Saving txt signature"
-    $plainTextSignature | out-file "$file.txt" -encoding $Encoding
-} catch {
-    Write-Error "Error: Unable to save the text signature file. Details: $($_.Exception.Message)"
-    exit 1
-}
-
-Set-RegistryEntries -Version $officeVersion -SignatureName $fileName
+#endregion
