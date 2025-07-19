@@ -80,10 +80,10 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ### **3. Execute o Script**
 ```powershell
 # Execução básica
-.\AssinaturaEmail.ps1
+.\Set-OutlookSignature.Ps1
 
 # Com parâmetros personalizados
-.\AssinaturaEmail.ps1 -CompanyName "Sua Empresa" -Website "https://empresa.com" -Verbose
+.\Set-OutlookSignature.Ps1 -CompanyName "Sua Empresa" -Website "https://empresa.com" -Verbose
 ```
 
 ## 📖 Uso
@@ -92,13 +92,13 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ### **Execução Simples**
 ```powershell
-.\AssinaturaEmail.ps1
+.\Set-OutlookSignature.Ps1
 ```
 > Busca automaticamente as informações do AD e gera a assinatura
 
 ### **Execução Avançada**
 ```powershell
-.\AssinaturaEmail.ps1 -CompanyName "Sua Empresa" `
+.\Set-OutlookSignature.Ps1 -CompanyName "Sua Empresa" `
                       -Website "https://sua.empresa.com.br" `
                       -Encoding "utf8" `
                       -LogLevel "Verbose"

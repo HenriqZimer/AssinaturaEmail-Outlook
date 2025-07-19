@@ -59,7 +59,7 @@ $Script:Config = @{
     Groups = @{
         FotoComercial = "Assinatura Email - Foto Comercial"
         Comex = "Assinatura Email - Comex"
-        Navigal = "Assinatura Email - Navigal"
+        Externo = "Assinatura Email - Externo"
     }
     ImageBaseUrl = "https://trust-signatures.s3.sa-east-1.amazonaws.com"
     DefaultOutlookVersions = @("16.0", "15.0", "14.0") # Office 365/2019/2016, 2013, 2010
@@ -102,7 +102,7 @@ class UserAccount {
     [string]$ExtensionAttribute3
     [bool]$IsFotoComercial
     [bool]$IsComex
-    [bool]$IsNavigal
+    [bool]$IsExterno
     
     UserAccount() {
         # Constructor vazio para permitir inicializacao
@@ -125,8 +125,8 @@ class SignatureGenerator {
         elseif ($this.User.IsComex) {
             return $this.GetComexSignature()
         }
-        elseif ($this.User.IsNavigal) {
-            return $this.GetNavigalSignature()
+        elseif ($this.User.IsExterno) {
+            return $this.GetExternoSignature()
         }
         else {
             return $this.GetDefaultSignature()
@@ -153,41 +153,41 @@ $(if($this.User.WebPage){"W: $($this.User.WebPage)"})
     hidden [string] GetFotoComercialSignature() {
         $baseUrl = $this.Config.ImageBaseUrl
         return @"
-<table><tr style="font-size: 16px"><td><img src="$baseUrl/Trust+Group/$($this.User.GivenName)+$($this.User.Surname).png" width="130"></td><td><div style="margin: 0px 20px 0px 30px"><span>We Trust</span><br><span style="font-weight: 800">$($this.User.GivenName) $($this.User.Surname)</span><br><span>$($this.User.JobTitle)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><div style="margin: 0px 20px 0px 0px"><img src="$baseUrl/Logomarcas/Logo.png" width="130"></div></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 30px 0px 30px; font-size: 18px">Acreditamos em <br>rela&ccedil;&otilde;es virtuosas <br>e confi&aacute;veis.</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+<table><tr style="font-size: 16px"><td><img src="$($this.Config.ImageBaseUrl)/usuarios/$($this.User.GivenName)$($this.User.Surname).png" width="130"></td><td><div style="margin: 0px 20px 0px 30px"><span>Empresa Exemplo</span><br><span style="font-weight: 800">$($this.User.GivenName) $($this.User.Surname)</span><br><span>$($this.User.JobTitle)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><div style="margin: 0px 30px 0px 0px"><img src="$($this.Config.ImageBaseUrl)/logomarcas/logo.png" width="130"></div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 30px 0px 30px; font-size: 18px">Acreditamos em <br>relações virtuosas <br>e confiáveis.</div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/gptw.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ods.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
 "@
     }
     
     hidden [string] GetComexSignature() {
         $baseUrl = $this.Config.ImageBaseUrl
         return @"
-<table><tr style="font-size: 16px"><td><img src="$baseUrl/Logomarcas/Logo.png" width="130"></td><td style="margin: 0px 30px 0px 30px"><span>We Trust</span><br><span style="font-weight: 800">$($this.User.DisplayName)</span><br><span>$($this.User.Department)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><table style="margin-left: -2px;"><tr><td><img src="$baseUrl/Logomarcas/whatsapp.png" width="20"></td><td>$($this.User.TelephoneNumber)</td></tr><tr><td><img src="$baseUrl/Logomarcas/Fone.png" width="20"></td><td>$($this.User.Fax)</td></tr></table></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 40px 0px 40px; font-size: 18px">Acreditamos em <br>rela&ccedil;&otilde;es virtuosas <br>e confi&aacute;veis.</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+<table><tr style="font-size: 16px"><td><img src="$($this.Config.ImageBaseUrl)/usuarios/$($this.User.GivenName)$($this.User.Surname).png" width="130"></td><td><div style="margin: 0px 20px 0px 30px"><span>Empresa Exemplo</span><br><span style="font-weight: 800">$($this.User.GivenName) $($this.User.Surname)</span><br><span>$($this.User.JobTitle)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><div style="margin: 0px 30px 0px 0px"><img src="$($this.Config.ImageBaseUrl)/logomarcas/logo.png" width="130"></div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 30px 0px 30px; font-size: 18px">Acreditamos em <br>relações virtuosas <br>e confiáveis.</div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/gptw.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ods.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
 "@
     }
     
-    hidden [string] GetNavigalSignature() {
+    hidden [string] GetExternoSignature() {
         $baseUrl = $this.Config.ImageBaseUrl
         return @"
-<table><tr style="font-size: 16px"><td><img src="$baseUrl/Logomarcas/Logo.png" width="130"></td><td><div style="margin: 0px 30px 0px 30px"><span>Kind regards,</span><br><span style="font-weight: 800">$($this.User.DisplayName)</span><br><span>$($this.User.Department)</span><br><br><span></span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 40px 0px 40px; font-size: 18px">Connecting your business to the global market</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+<table><tr style="font-size: 16px"><td><img src="$($this.Config.ImageBaseUrl)/usuarios/$($this.User.GivenName)$($this.User.Surname).png" width="130"></td><td><div style="margin: 0px 20px 0px 30px"><span>Empresa Exemplo</span><br><span style="font-weight: 800">$($this.User.GivenName) $($this.User.Surname)</span><br><span>$($this.User.JobTitle)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><div style="margin: 0px 30px 0px 0px"><img src="$($this.Config.ImageBaseUrl)/logomarcas/logo.png" width="130"></div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 30px 0px 30px; font-size: 18px">Acreditamos em <br>relações virtuosas <br>e confiáveis.</div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/gptw.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ods.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
 "@
     }
     
     hidden [string] GetDefaultSignature() {
         $baseUrl = $this.Config.ImageBaseUrl
         return @"
-<table><tr style="font-size: 16px"><td><img src="$baseUrl/Logomarcas/Logo.png" width="130"></td><td><div style="margin: 0px 30px 0px 30px"><span>We Trust</span><br><span style="font-weight: 800">$($this.User.DisplayName)</span><br><span>$($this.User.Department)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><img src="$baseUrl/Logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 40px 0px 40px; font-size: 18px">Acreditamos em <br>rela&ccedil;&otilde;es virtuosas <br>e confi&aacute;veis.</div></td><td><img src="$baseUrl/Logomarcas/gptw.png" width="50"><img src="$baseUrl/Logomarcas/ods.png" width="50"><img src="$baseUrl/Logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
+<table><tr style="font-size: 16px"><td><img src="$($this.Config.ImageBaseUrl)/usuarios/$($this.User.GivenName)$($this.User.Surname).png" width="130"></td><td><div style="margin: 0px 20px 0px 30px"><span>Empresa Exemplo</span><br><span style="font-weight: 800">$($this.User.GivenName) $($this.User.Surname)</span><br><span>$($this.User.JobTitle)</span><br><br><span>$($this.User.PhysicalDeliveryOfficeName)</span><br><span>$($this.User.TelephoneNumber)</span><br></div></td><td><div style="margin: 0px 30px 0px 0px"><img src="$($this.Config.ImageBaseUrl)/logomarcas/logo.png" width="130"></div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/barra.png" width="3" height="150"></td><td><div style="margin: 0px 30px 0px 30px; font-size: 18px">Acreditamos em <br>relações virtuosas <br>e confiáveis.</div></td><td><img src="$($this.Config.ImageBaseUrl)/logomarcas/gptw.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ods.png" width="50"><img src="$($this.Config.ImageBaseUrl)/logomarcas/ecovadis.png" width="50"></td></tr></table><br>$($this.GetSocialMediaLinks())<br>$($this.GetLegalDisclaimer())
 "@
     }
     
     hidden [string] GetSocialMediaLinks() {
         $baseUrl = $this.Config.ImageBaseUrl
         return @"
-<table width="850"><tr><td><div style="margin: 0px 0px 0px 30px"><a href="https://wa.me/$($this.User.Mobile)"><img src="$baseUrl/Logomarcas/whatsapp.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://www.google.com/search?q=trust+group"><img src="$baseUrl/Logomarcas/localizacao.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://trust.group/"><img src="$baseUrl/Logomarcas/site.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://www.linkedin.com/company/trustgroup/?originalSubdomain=br"><img src="$baseUrl/Logomarcas/linkedin.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://www.instagram.com/trust_group_/"><img src="$baseUrl/Logomarcas/instagram.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="tel:$($this.User.Fax)"><img src="$baseUrl/Logomarcas/Fone.png" width="40"></a></div></td></tr></table>
+<table width="850"><tr><td><div style="margin: 0px 0px 0px 30px"><a href="https://wa.me/$($this.User.Mobile)"><img src="$($this.Config.ImageBaseUrl)/logomarcas/whatsapp.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://www.google.com/search?q=empresa+exemplo"><img src="$($this.Config.ImageBaseUrl)/logomarcas/localizacao.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://empresaexemplo.com.br/"><img src="$($this.Config.ImageBaseUrl)/logomarcas/site.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://linkedin.com/company/empresaexemplo"><img src="$($this.Config.ImageBaseUrl)/logomarcas/linkedin.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="https://instagram.com/empresa_exemplo"><img src="$($this.Config.ImageBaseUrl)/logomarcas/instagram.png" width="40"></a></div></td><td><div style="margin: 0px 0px 0px 30px"><a href="tel:$($this.User.Fax)"><img src="$($this.Config.ImageBaseUrl)/logomarcas/fone.png" width="40"></a></div></td></tr></table>
 "@
     }
     
     hidden [string] GetLegalDisclaimer() {
         return @"
-<table><div style="font-size: 11px">O conte&uacute;do desta mensagem &eacute; de propriedade do Trust Group LTDA e &eacute; destinado exclusivamente para seu uso, sendo vedado o encaminhamento para fins particulares.<br> A divulga&ccedil;&atilde;o indevida do teor desta mensagem &eacute; crime nos termos da legisla&ccedil;&atilde;o vigente, pois resultar&aacute; em viola&ccedil;&atilde;o de segredo profissional, empresarial ou de prote&ccedil;&atilde;o<br> &agrave; marca da propriet&aacute;ria nos termos do inc. XXIX da CF/88 e Lei 9.279/96. Se voc&ecirc; n&atilde;o for o destinat&aacute;rio da mesma, favor inutiliz&aacute;-la. <br> <br> The content of this message is owned by Trust Group LTDA and is intended solely for your own use, being forbidden its use for private purposes. The improper disclosure of <br> this message is a crime under current Brazilian law, as it will represent a violation of professional, business secrets and/or brand protection under the terms of inc. XXIX of <br> CF/88 and Law 9.279/96. As it is so, if you are not the addressee, please make it unusable.</div></table>
+<table><div style="font-size: 11px">O conteúdo desta mensagem é de propriedade da Empresa Exemplo S.A. e é destinado exclusivamente para seu uso, sendo vedado o encaminhamento para fins particulares.<br> A divulgação indevida do teor desta mensagem é crime nos termos da legislação vigente, pois resultará em violação de segredo profissional, empresarial ou de proteção<br> à marca da proprietária nos termos do inc. XXIX da CF/88 e Lei 9.279/96. Se você não for o destinatário da mesma, favor inutilizá-la. <br><br> The content of this message is owned by Empresa Exemplo S.A. and is intended solely for your own use, being forbidden its use for private purposes. The improper disclosure of <br> this message is a crime under current Brazilian law, as it will represent a violation of professional, business secrets and/or brand protection under the terms of inc. XXIX of <br> CF/88 and Law 9.279/96. As it is so, if you are not the addressee, please make it unusable.</div></table>
 "@
     }
 }
@@ -345,7 +345,7 @@ function Get-UserDetails {
         # Verifica grupos
         $userAccount.IsFotoComercial = Test-UserGroupMembership -GroupName $Script:Config.Groups.FotoComercial
         $userAccount.IsComex = Test-UserGroupMembership -GroupName $Script:Config.Groups.Comex
-        $userAccount.IsNavigal = Test-UserGroupMembership -GroupName $Script:Config.Groups.Navigal
+        $userAccount.IsExterno = Test-UserGroupMembership -GroupName $Script:Config.Groups.Externo
         
         Write-Log "Detalhes do usuario obtidos com sucesso." -Level Information
         return $userAccount
