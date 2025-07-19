@@ -52,7 +52,7 @@ Windows 10/11
 Version 5.1 ou superior
 
 # Microsoft Outlook
-Versões 2019, Office365 suportadas
+Versões 2016, Office365 suportadas
 
 # Rede
 Conexão com domínio Active Directory
